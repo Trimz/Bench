@@ -26,6 +26,7 @@ final class BenchStore: ObservableObject {
     @Published var isLoading = false
     @Published var isSendingUpdate = false
     @Published var isCreatingProject = false
+    @Published var isRefreshingSummary = false
     @Published var errorMessage: String?
 
     private let client: APIClient
@@ -156,6 +157,28 @@ final class BenchStore: ObservableObject {
             _ = try await client.createUpdate(projectId: project.id, content: trimmedDraft)
             draftUpdate = ""
             try await reloadProjects()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func regenerateSummary() async {
+        guard let project = selectedProject else {
+            errorMessage = "Select a project before refreshing the summary."
+            return
+        }
+
+        isRefreshingSummary = true
+        defer { isRefreshingSummary = false }
+
+        do {
+            let refreshedProject = try await client.regenerateSummary(projectId: project.id)
+
+            if let index = projects.firstIndex(where: { $0.id == refreshedProject.id }) {
+                projects[index] = refreshedProject
+            }
+
+            try await refreshSelectedProject()
         } catch {
             errorMessage = error.localizedDescription
         }

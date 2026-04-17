@@ -188,8 +188,26 @@ struct ContentView: View {
 
     private func summaryPanel(for project: BenchProject) -> some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Summary")
-                .font(.title2.weight(.semibold))
+            HStack {
+                Text("Summary")
+                    .font(.title2.weight(.semibold))
+
+                Spacer()
+
+                Button {
+                    Task {
+                        await store.regenerateSummary()
+                    }
+                } label: {
+                    if store.isRefreshingSummary {
+                        ProgressView()
+                    } else {
+                        Text("Refresh")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .disabled(store.isRefreshingSummary)
+            }
 
             Text(project.summary ?? "No summary yet. Send an update to generate the first project snapshot.")
                 .font(.body)

@@ -176,6 +176,14 @@ final class APIClient {
         return envelope.updates
     }
 
+    func regenerateSummary(projectId: String) async throws -> BenchProject {
+        let envelope: ProjectEnvelope = try await send(
+            path: "/api/projects/\(projectId)/summary/regenerate",
+            method: "POST"
+        )
+        return envelope.project
+    }
+
     func createUpdate(projectId: String, content: String) async throws -> BenchUpdate {
         let envelope: UpdateEnvelope = try await send(
             path: "/api/projects/\(projectId)/updates",

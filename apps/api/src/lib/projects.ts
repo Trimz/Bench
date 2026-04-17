@@ -1,6 +1,7 @@
 import type { Project, ProjectSummary } from "@prisma/client";
 
 import { db } from "@/lib/db";
+import { generateProjectSummary } from "@/lib/gemini";
 import { calculateActivityScore, recencyStatus } from "@/lib/ranking";
 
 type ProjectWithRelations = Project & {
@@ -29,7 +30,25 @@ export async function refreshProjectState(projectId: string) {
   }
 
   const activityScore = calculateActivityScore(project);
-  const summaryText = buildFallbackSummary(project);
+  const fallbackSummary = buildFallbackSummary(project);
+  let summaryText = fallbackSummary;
+
+  try {
+    const generatedSummary = await generateProjectSummary({
+      projectName: project.name,
+      existingSummary: project.summary?.summaryText ?? null,
+      updates: project.updates.map((update) => ({
+        content: update.content ?? "",
+        createdAt: update.createdAt,
+      })),
+    });
+
+    if (generatedSummary) {
+      summaryText = generatedSummary;
+    }
+  } catch (error) {
+    console.error("Failed to generate Gemini summary", error);
+  }
 
   await db.project.update({
     where: { id: projectId },
