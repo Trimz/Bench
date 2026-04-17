@@ -1,0 +1,10 @@
+{
+  "name": "bench",
+  "private": true,
+  "scripts": {
+    "dev:api": "npm --prefix apps/api run dev",
+    "build:api": "npm --prefix apps/api run build",
+    "lint:api": "npm --prefix apps/api run lint",
+    "typecheck:api": "npm --prefix apps/api run typecheck"
+  }
+}

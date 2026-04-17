@@ -1,0 +1,11 @@
+.DS_Store
+.swiftpm
+.build
+.env
+.env.local
+.env.*.local
+*.tsbuildinfo
+node_modules
+coverage
+dist
+.vercel
