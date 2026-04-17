@@ -1,29 +1,28 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { jsonError } from "@/lib/http";
-import { calculateActivityScore, recencyStatus } from "@/lib/ranking";
+import { refreshProjectState, serializeProject } from "@/lib/projects";
+import { requireCurrentUser } from "@/lib/route-auth";
 
 const createProjectSchema = z.object({
   name: z.string().trim().min(1).max(120),
 });
 
 export async function GET() {
-  const user = await getCurrentUser();
+  const auth = await requireCurrentUser();
 
-  if (!user) {
-    return jsonError("Unauthorized.", 401);
+  if ("error" in auth) {
+    return auth.error;
   }
 
   const projects = await db.project.findMany({
     where: {
-      userId: user.id,
+      userId: auth.user.id,
     },
     include: {
       updates: {
-        select: { createdAt: true },
         orderBy: { createdAt: "desc" },
         take: 20,
       },
@@ -32,29 +31,17 @@ export async function GET() {
   });
 
   const rankedProjects = projects
-    .map((project) => {
-      const activityScore = calculateActivityScore(project);
-
-      return {
-        id: project.id,
-        name: project.name,
-        lastUpdateAt: project.lastUpdateAt,
-        activityScore,
-        recencyStatus: recencyStatus(project.lastUpdateAt),
-        updateCount: project.updates.length,
-        summary: project.summary?.summaryText ?? null,
-      };
-    })
+    .map(serializeProject)
     .sort((left, right) => right.activityScore - left.activityScore);
 
   return NextResponse.json({ projects: rankedProjects });
 }
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
+  const auth = await requireCurrentUser();
 
-  if (!user) {
-    return jsonError("Unauthorized.", 401);
+  if ("error" in auth) {
+    return auth.error;
   }
 
   const body = await request.json().catch(() => null);
@@ -66,16 +53,16 @@ export async function POST(request: Request) {
 
   const project = await db.project.create({
     data: {
-      userId: user.id,
+      userId: auth.user.id,
       name: parsed.data.name,
     },
-    select: {
-      id: true,
-      name: true,
-      createdAt: true,
-      updatedAt: true,
+    include: {
+      updates: true,
+      summary: true,
     },
   });
 
-  return NextResponse.json({ project }, { status: 201 });
+  await refreshProjectState(project.id);
+
+  return NextResponse.json({ project: serializeProject(project) }, { status: 201 });
 }
